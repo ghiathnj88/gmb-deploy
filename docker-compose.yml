@@ -2,13 +2,9 @@
 # die der Workflow .github/workflows/docker-publish.yml baut+pusht.
 # -> im Hostinger Docker Manager als Compose-URL nutzen (kein SSH, kein Build am Server).
 #
-# n8n läuft als Docker-Container (Projekt "n8n-wius", hinter Traefik, intern Port 5678) auf DEMSELBEN
-# VPS. Die App erreicht n8n daher direkt über dessen Docker-Netz (n8n-wius_default) statt über die
-# öffentliche Adresse — sonst scheitert der Aufruf am Hairpin-NAT (Container -> eigene Host-IP).
-#
 # Nötige Umgebungsvariablen im Docker Manager (Env-Feld), OHNE Anführungszeichen:
-#   JWT_SECRET (Pflicht, >=16 Zeichen)  ·  ADMIN_EMAIL  ·  ADMIN_PASSWORD  ·  N8N_WEBHOOK_SECRET
-# (N8N_WEBHOOK_URL wird hier fest auf den internen Weg gesetzt — im Manager NICHT nötig.)
+#   JWT_SECRET (Pflicht, >=16 Zeichen)  ·  ADMIN_EMAIL  ·  ADMIN_PASSWORD
+#   N8N_WEBHOOK_URL (https://n8n-wius.srv1392095.hstgr.cloud/webhook/marktbewertung)  ·  N8N_WEBHOOK_SECRET
 # App erreichbar unter http://DEINE-SERVER-IP:8080.
 
 services:
@@ -28,14 +24,10 @@ services:
       - ADMIN_NAME
       - ADMIN_EMAIL
       - ADMIN_PASSWORD
+      - N8N_WEBHOOK_URL
       - N8N_WEBHOOK_SECRET
-      # n8n INTERN über sein Docker-Netz erreichen (kein Hairpin, kein TLS). Service-Alias "n8n" auf 5678.
-      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/marktbewertung
     volumes:
       - gmb-data:/data
-    networks:
-      - default
-      - n8n
     healthcheck:
       test:
         - "CMD"
@@ -57,16 +49,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    networks:
-      - default
-
-networks:
-  default:
-  # Bestehendes Docker-Netz des n8n-Projekts (Projektname "n8n-wius" -> Netz "n8n-wius_default").
-  # Falls der Redeploy "network n8n-wius_default not found" meldet: hier den echten n8n-Projekt-Netznamen eintragen.
-  n8n:
-    external: true
-    name: n8n-wius_default
 
 volumes:
   gmb-data:
