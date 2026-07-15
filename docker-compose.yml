@@ -12,6 +12,7 @@ services:
     image: ghcr.io/ghiathnj88/gmb-api:latest
     container_name: gmb-api
     restart: unless-stopped
+    pull_policy: always
     # KEIN Host-Port: die API ist nur intern erreichbar; der web-Container proxyt /api dorthin.
     environment:
       - DATABASE_URL=file:/data/prod.db
@@ -43,6 +44,7 @@ services:
     image: ghcr.io/ghiathnj88/gmb-web:latest
     container_name: gmb-web
     restart: unless-stopped
+    pull_policy: always
     ports:
       - "8080:80"
     depends_on:
