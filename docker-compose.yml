@@ -1,11 +1,15 @@
 # Deploy-Compose OHNE Build: nutzt fertige Images aus der GitHub Container Registry (GHCR),
 # die der Workflow .github/workflows/docker-publish.yml baut+pusht.
-# -> im Hostinger Docker Manager einfügen (kein SSH, kein Build am Server).
+# -> im Hostinger Docker Manager als Compose-URL nutzen (kein SSH, kein Build am Server).
 #
-# Nötige Umgebungsvariablen im Docker Manager (Env-Feld) setzen:
-#   JWT_SECRET (Pflicht, >=16 Zeichen)  ·  ADMIN_EMAIL  ·  ADMIN_PASSWORD
-#   N8N_WEBHOOK_URL  ·  N8N_WEBHOOK_SECRET   (für den Online-Marktpreis)
-# Danach ist die App unter http://DEINE-SERVER-IP:8080 erreichbar (nur EIN Port offen: 8080).
+# n8n läuft als Docker-Container (Projekt "n8n-wius", hinter Traefik, intern Port 5678) auf DEMSELBEN
+# VPS. Die App erreicht n8n daher direkt über dessen Docker-Netz (n8n-wius_default) statt über die
+# öffentliche Adresse — sonst scheitert der Aufruf am Hairpin-NAT (Container -> eigene Host-IP).
+#
+# Nötige Umgebungsvariablen im Docker Manager (Env-Feld), OHNE Anführungszeichen:
+#   JWT_SECRET (Pflicht, >=16 Zeichen)  ·  ADMIN_EMAIL  ·  ADMIN_PASSWORD  ·  N8N_WEBHOOK_SECRET
+# (N8N_WEBHOOK_URL wird hier fest auf den internen Weg gesetzt — im Manager NICHT nötig.)
+# App erreichbar unter http://DEINE-SERVER-IP:8080.
 
 services:
   api:
@@ -13,12 +17,6 @@ services:
     container_name: gmb-api
     restart: unless-stopped
     pull_policy: always
-    # n8n läuft auf DEMSELBEN VPS (n8n-wius… -> gleiche öffentliche IP). Ein Container, der die
-    # öffentliche Host-IP aufruft, scheitert am Hairpin-NAT. Daher den n8n-Namen intern über das
-    # Host-Gateway auflösen (Hostname/TLS/SNI bleiben n8n-wius…, der Reverse-Proxy des Hosts routet).
-    extra_hosts:
-      - "n8n-wius.srv1392095.hstgr.cloud:host-gateway"
-    # KEIN Host-Port: die API ist nur intern erreichbar; der web-Container proxyt /api dorthin.
     environment:
       - DATABASE_URL=file:/data/prod.db
       - UPLOADS_DIR=/data/uploads
@@ -30,10 +28,14 @@ services:
       - ADMIN_NAME
       - ADMIN_EMAIL
       - ADMIN_PASSWORD
-      - N8N_WEBHOOK_URL
       - N8N_WEBHOOK_SECRET
+      # n8n INTERN über sein Docker-Netz erreichen (kein Hairpin, kein TLS). Service-Alias "n8n" auf 5678.
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/marktbewertung
     volumes:
       - gmb-data:/data
+    networks:
+      - default
+      - n8n
     healthcheck:
       test:
         - "CMD"
@@ -55,6 +57,16 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    networks:
+      - default
+
+networks:
+  default:
+  # Bestehendes Docker-Netz des n8n-Projekts (Projektname "n8n-wius" -> Netz "n8n-wius_default").
+  # Falls der Redeploy "network n8n-wius_default not found" meldet: hier den echten n8n-Projekt-Netznamen eintragen.
+  n8n:
+    external: true
+    name: n8n-wius_default
 
 volumes:
   gmb-data:
