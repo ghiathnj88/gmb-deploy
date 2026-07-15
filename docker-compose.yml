@@ -13,6 +13,11 @@ services:
     container_name: gmb-api
     restart: unless-stopped
     pull_policy: always
+    # n8n läuft auf DEMSELBEN VPS (n8n-wius… -> gleiche öffentliche IP). Ein Container, der die
+    # öffentliche Host-IP aufruft, scheitert am Hairpin-NAT. Daher den n8n-Namen intern über das
+    # Host-Gateway auflösen (Hostname/TLS/SNI bleiben n8n-wius…, der Reverse-Proxy des Hosts routet).
+    extra_hosts:
+      - "n8n-wius.srv1392095.hstgr.cloud:host-gateway"
     # KEIN Host-Port: die API ist nur intern erreichbar; der web-Container proxyt /api dorthin.
     environment:
       - DATABASE_URL=file:/data/prod.db
